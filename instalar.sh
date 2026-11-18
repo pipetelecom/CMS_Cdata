@@ -32,6 +32,9 @@ error() { echo -e "\e[31m[ERROR]\e[0m $*" >&2; exit 1; }
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
   info "Docker ya está instalado: $(docker --version)"
 else
+  info "Quitando paquetes de Docker de Ubuntu que chocan con el oficial..."
+  apt-get remove -y docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc 2>/dev/null || true
+  dpkg --configure -a || true
   info "Instalando Docker (versiones recomendadas por CMS)..."
   apt-get update -y
   apt-get install -y ca-certificates curl
@@ -52,7 +55,13 @@ else
   systemctl enable --now docker
 fi
 
+docker compose version >/dev/null 2>&1 \
+  || error "Docker Compose no quedó instalado. Corre: sudo apt-get install -y docker-compose-plugin=$COMPOSE_VER"
+
 # ---------- CMS ----------
+CODE=$(curl -s -o /dev/null -m 15 -w '%{http_code}' -I \
+  "https://cms.s.cdatayun.com/cms_linux/stable/cms_v${CMS_VERSION}_linux.tar")
+[[ "$CODE" == "200" ]] || error "La versión $CMS_VERSION no existe en el servidor de CData (código $CODE). Corre 'sudo bash verificar.sh' para ver las disponibles."
 info "Preparando carpeta $CMS_DIR"
 mkdir -p "$CMS_DIR"
 cd "$CMS_DIR"
